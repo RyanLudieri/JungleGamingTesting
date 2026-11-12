@@ -1,0 +1,43 @@
+{
+  "name": "distributed-wagering-processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": "1.4.4"
+  },
+  "scripts": {
+    "start": "bun src/main.ts",
+    "start:dev": "bun --watch src/main.ts",
+    "test": "bun test",
+    "test:integration": "bun test ./test/integration/wallet.integration.ts ./test/integration/wager.integration.ts ./test/integration/references.integration.ts ./test/integration/transport.integration.ts --timeout 45000",
+    "sqs:init": "bun src/messaging/infrastructure/sqs.ts",
+    "demo": "bun scripts/demo.ts",
+    "test:recovery": "bun scripts/recovery.ts",
+    "worker:consumer": "bun src/messaging/infrastructure/worker.ts consumer",
+    "worker:publisher": "bun src/messaging/infrastructure/worker.ts publisher",
+    "db:local-role": "bun src/shared/infrastructure/configure-local-role.ts",
+    "migration:up": "bun src/shared/infrastructure/migrate.ts up",
+    "migration:down": "bun src/shared/infrastructure/migrate.ts down",
+    "worker:references": "bun src/wagering/infrastructure/reference-worker.ts",
+    "typecheck": "bun node_modules/typescript/bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "3.1167.0",
+    "@mikro-orm/core": "7.2.8",
+    "@mikro-orm/migrations": "7.2.8",
+    "@mikro-orm/postgresql": "7.2.8",
+    "@nestjs/common": "12.4.2",
+    "@nestjs/core": "12.4.2",
+    "@nestjs/platform-express": "12.4.2",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4",
+    "@types/express": "5.0.6",
+    "@types/pg": "8.23.1",
+    "typescript": "7.0.2"
+  }
+}

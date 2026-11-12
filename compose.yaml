@@ -1,0 +1,97 @@
+name: jungle-wagering
+services:
+  setup:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://wagering:local-development-only@postgres:5432/wagering
+      SQS_ENDPOINT: http://localstack:4566
+    command: ['sh', '-c', 'bun run migration:up && bun run db:local-role && bun run sqs:init']
+    depends_on:
+      postgres: {condition: service_healthy}
+      localstack: {condition: service_healthy}
+  api:
+    build: .
+    environment: &runtime
+      DATABASE_URL: postgresql://wagering_app:local-runtime-only@postgres:5432/wagering
+      SQS_ENDPOINT: http://localstack:4566
+      AWS_REGION: us-east-1
+    ports: ['127.0.0.1:3000:3000']
+    depends_on:
+      setup: {condition: service_completed_successfully}
+    restart: unless-stopped
+    stop_grace_period: 45s
+  consumer:
+    build: .
+    command: ['bun', 'run', 'worker:consumer']
+    environment:
+      <<: *runtime
+      METRICS_PORT: '9100'
+    depends_on:
+      setup: {condition: service_completed_successfully}
+    deploy: {replicas: 3}
+    restart: unless-stopped
+    stop_grace_period: 45s
+  publisher:
+    build: .
+    command: ['bun', 'run', 'worker:publisher']
+    environment:
+      <<: *runtime
+      METRICS_PORT: '9100'
+    depends_on:
+      setup: {condition: service_completed_successfully}
+    deploy: {replicas: 2}
+    restart: unless-stopped
+    stop_grace_period: 45s
+  references:
+    build: .
+    command: ['bun', 'run', 'worker:references']
+    environment: *runtime
+    depends_on:
+      setup: {condition: service_completed_successfully}
+    restart: unless-stopped
+    stop_grace_period: 45s
+  localstack:
+    image: localstack/localstack:4.12.0
+    environment:
+      SERVICES: sqs
+      SQS_ENDPOINT_STRATEGY: dynamic
+    ports:
+      - '127.0.0.1:4566:4566'
+    healthcheck:
+      test: ['CMD', 'awslocal', 'sqs', 'list-queues']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  postgres:
+    image: postgres:16.11-alpine
+    environment:
+      POSTGRES_USER: wagering
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: wagering
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U wagering -d wagering']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  postgres-test:
+    image: postgres:16.11-alpine
+    profiles: ['test']
+    environment:
+      POSTGRES_USER: wagering_test
+      POSTGRES_PASSWORD: local-test-only
+      POSTGRES_DB: wagering_test
+    ports:
+      - '127.0.0.1:5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U wagering_test -d wagering_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  postgres-data:
